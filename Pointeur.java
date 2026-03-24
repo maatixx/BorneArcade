@@ -27,7 +27,19 @@ public class Pointeur {
 	    //System.out.println(Graphique.tableau[getValue()].getChemin());
 	    try {
 		Graphique.stopMusiqueFond();
-		Process process = Runtime.getRuntime().exec("./"+Graphique.tableau[getValue()].getNom()+".sh");
+		// Détection de l'OS pour choisir le bon format de script
+		String os = System.getProperty("os.name").toLowerCase();
+		boolean isWindows = os.contains("windows");
+		String gameName = Graphique.tableau[getValue()].getNom();
+
+		String[] cmd;
+		if (isWindows) {
+		    cmd = new String[]{"cmd", "/c", gameName + ".bat"};
+		} else {
+		    cmd = new String[]{"bash", "./" + gameName + ".sh"};
+		}
+
+		Process process = Runtime.getRuntime().exec(cmd);
 		process.waitFor();		//ajouté afin d'attendre la fin de l'exécution du jeu pour reprendre le contrôle sur le menu
 		Graphique.lectureMusiqueFond();
 	    } catch (IOException e) {
