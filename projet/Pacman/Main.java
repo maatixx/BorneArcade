@@ -3,6 +3,7 @@ import MG2D.geometrie.*;
 import java.awt.Font;
 import java.awt.Color;
 import java.util.ArrayList;
+import MG2D.Fenetre;
 
 public class Main {
     static final int TAILLEX = 1280;
@@ -17,8 +18,16 @@ public class Main {
         ClavierBorneArcade clavier = new ClavierBorneArcade();
         f.addKeyListener(clavier);
         f.getP().addKeyListener(clavier);
-        
+
+        // Demander le nom du joueur avant la partie
+        String nomJoueur = HighScore.demanderNom(f, clavier);
+
+        // Réinitialiser l'écran pour le jeu
+        f.effacer();
+        f.rafraichir();
+
         // Création du labyrinthe (0=mur, 1=point, 2=vide)
+        // Labyrinthe ouvert sans île pour les fantômes
         int[][] labyrinthe = {
             {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
             {0,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0},
@@ -26,13 +35,13 @@ public class Main {
             {0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0},
             {0,1,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,1,0},
             {0,1,1,1,1,0,1,1,1,1,1,1,0,1,1,1,1,1,1,0,1,1,1,1,0},
-            {0,0,0,0,1,0,0,0,1,0,0,2,0,2,0,0,1,0,0,0,1,0,0,0,0},
-            {2,2,2,0,1,0,2,2,2,0,2,2,2,2,2,0,2,2,2,0,1,0,2,2,2},
-            {0,0,0,0,1,0,2,0,0,0,0,0,2,0,0,0,0,0,2,0,1,0,0,0,0},
+            {0,0,0,0,1,0,0,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,0,0,0},
+            {2,2,2,0,1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1,0,2,2,2},
+            {0,0,0,0,1,0,1,0,0,0,0,2,2,2,0,0,0,0,1,0,1,0,0,0,0},
             {2,2,2,2,1,2,2,0,2,2,2,2,2,2,2,2,2,0,2,2,1,2,2,2,2},
-            {0,0,0,0,1,0,2,0,0,0,0,0,0,0,0,0,0,0,2,0,1,0,0,0,0},
-            {2,2,2,0,1,0,2,2,2,2,2,2,2,2,2,2,2,2,2,0,1,0,2,2,2},
-            {0,0,0,0,1,0,2,0,0,0,0,0,0,0,0,0,0,0,2,0,1,0,0,0,0},
+            {0,0,0,0,1,0,1,0,0,0,0,2,2,2,0,0,0,0,1,0,1,0,0,0,0},
+            {2,2,2,0,1,0,1,1,1,2,2,2,2,2,2,2,2,0,1,0,1,0,2,2,2},
+            {0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0},
             {0,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0},
             {0,1,0,0,1,0,0,0,1,0,0,1,0,1,0,0,1,0,0,0,1,0,0,1,0},
             {0,1,1,0,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,0,1,1,0},
@@ -112,27 +121,39 @@ public class Main {
                     int fx = fantome[0];
                     int fy = fantome[1];
                     int fdir = fantome[2];
-                    
-                    int newFx = fx;
-                    int newFy = fy;
-                    
-                    switch (fdir) {
-                        case 0: newFy--; break; // Bas
-                        case 1: newFx++; break; // Droite
-                        case 2: newFy++; break; // Haut
-                        case 3: newFx--; break; // Gauche
+                    int oppositeDir = (fdir + 2) % 4; // direction opposée (demi-tour)
+
+                    // Compter les directions valides (= intersection)
+                    int[] dx = {0, 1, 0, -1};
+                    int[] dy = {-1, 0, 1, 0};
+                    ArrayList<Integer> validDirs = new ArrayList<>();
+                    for (int d = 0; d < 4; d++) {
+                        int nx = fx + dx[d];
+                        int ny = fy + dy[d];
+                        if (nx >= 0 && nx < 25 && ny >= 0 && ny < 21 &&
+                            labyrinthe[ny][nx] != 0) {
+                            validDirs.add(d);
+                        }
                     }
-                    
-                    // Vérifier collision fantôme avec murs
-                    if (newFx >= 0 && newFx < 25 && newFy >= 0 && newFy < 21 && 
-                        labyrinthe[newFy][newFx] != 0) {
-                        fantome[0] = newFx;
-                        fantome[1] = newFy;
-                    } else {
-                        // Changer de direction aléatoirement
-                        fantome[2] = (int)(Math.random() * 4);
+
+                    int chosenDir = fdir;
+
+                    if (validDirs.size() > 2 || !validDirs.contains(fdir)) {
+                        // Intersection ou mur devant : choisir une nouvelle direction
+                        // Éviter le demi-tour sauf si c'est la seule option
+                        ArrayList<Integer> preferred = new ArrayList<>();
+                        for (int d : validDirs) {
+                            if (d != oppositeDir) preferred.add(d);
+                        }
+                        if (preferred.isEmpty()) preferred = validDirs;
+                        chosenDir = preferred.get((int)(Math.random() * preferred.size()));
                     }
-                    
+
+                    // Avancer
+                    fantome[0] = fx + dx[chosenDir];
+                    fantome[1] = fy + dy[chosenDir];
+                    fantome[2] = chosenDir;
+
                     // Vérifier collision Pac-Man avec fantôme
                     if (fantome[0] == pacmanX && fantome[1] == pacmanY) {
                         jeuEnCours = false;
@@ -236,5 +257,16 @@ public class Main {
         try {
             Thread.sleep(3000);
         } catch (Exception e) {}
+
+        // Sauvegarder dans le highscore si le joueur est dans le top 10
+        ArrayList<LigneHighScore> list = HighScore.lireFichier("highscore");
+        int position = 0;
+        for (int i = 0; i < list.size(); i++) {
+            if (score <= list.get(i).getScore()) position++;
+            else break;
+        }
+        if (position < 10) {
+            HighScore.enregistrerFichier("highscore", list, nomJoueur, score);
+        }
     }
 }
