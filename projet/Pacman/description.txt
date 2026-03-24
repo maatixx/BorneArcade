@@ -1,0 +1,6 @@
+Pac-Man - Jeu Classique - 2026
+
+Mangez tous les points du labyrinthe
+tout en évitant les fantômes !
+
+Joystick: Déplacements
